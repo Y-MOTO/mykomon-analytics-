@@ -157,19 +157,18 @@ if export_btn:
 
         status.empty()
         if errors:
-            st.error("一部エラーが発生しました:\n" + "\n".join(errors))
+            st.error("エクスポートに失敗しました:\n" + "\n".join(errors))
         else:
             st.success(f"{len(months)} ヶ月分のエクスポートが完了しました。データを読み込みます…")
-
-        # エクスポート後に自動でデータを再読み込み
-        reload_dir = save_dir if save_dir else effective_save_dir
-        if reload_dir:
-            df_new = load_data(reload_dir)
-            st.session_state.df = df_new
-            save_dir = reload_dir
-            st.session_state.summary_text = analyzer.build_summary_text(df_new)
-            st.session_state.conversation = []
-            st.rerun()
+            # 成功時のみ自動再読み込み
+            reload_dir = save_dir if save_dir else effective_save_dir
+            if reload_dir:
+                df_new = load_data(reload_dir)
+                st.session_state.df = df_new
+                save_dir = reload_dir
+                st.session_state.summary_text = analyzer.build_summary_text(df_new)
+                st.session_state.conversation = []
+                st.rerun()
 
 # ── データ読み込み ──────────────────────────────────────────────────────────
 if "df" not in st.session_state:
