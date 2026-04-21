@@ -11,11 +11,22 @@ from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+import streamlit.components.v1 as components
 from dateutil.relativedelta import relativedelta
 
 import analyzer
 import ai_report
 from parser import load_csvs
+
+MANUAL_PATH = Path(__file__).parent / "manual.md"
+
+
+@st.dialog("📖 使用マニュアル", width="large")
+def show_manual():
+    if MANUAL_PATH.exists():
+        st.markdown(MANUAL_PATH.read_text(encoding="utf-8"))
+    else:
+        st.warning("マニュアルファイルが見つかりません。")
 
 EXPORT_SCRIPT = Path(__file__).parent / "csv_export" / "mykomon_export_http.py"
 
@@ -54,6 +65,16 @@ def load_config() -> dict:
 with st.sidebar:
     st.title("⚙️ 設定")
     cfg = load_config()
+
+    _c1, _c2 = st.columns(2)
+    with _c1:
+        if st.button("📖 マニュアル", use_container_width=True):
+            show_manual()
+    with _c2:
+        if st.button("🖨️ 印刷", use_container_width=True):
+            components.html("<script>window.parent.print();</script>", height=0)
+
+    st.divider()
 
     # --- データ取得セクション ---
     # MyKomon認証（クラウド: 常に表示、ローカル: config.jsonがなければ表示）
