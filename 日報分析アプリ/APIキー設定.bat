@@ -2,26 +2,36 @@
 chcp 65001 > nul
 echo.
 echo ============================================
-echo   Anthropic API キー 初回設定
+echo   Anthropic API キー 環境変数登録
 echo ============================================
 echo.
-echo Anthropic のサイト（https://console.anthropic.com）で
-echo 取得した API キー（sk-ant- で始まる文字列）を
-echo 貼り付けて Enter を押してください。
-echo.
-set /p APIKEY="API キー: "
 
-if "%APIKEY%"=="" (
-    echo キーが入力されませんでした。設定を中止します。
+:: 暗号化ファイルの存在確認
+if not exist "%APPDATA%\MyKomon\apikey.enc" (
+    echo エラー：APIキーの暗号化ファイルが見つかりません。
+    echo 管理者に「管理者用APIキー暗号化.bat」の実行を依頼してください。
     pause
     exit /b
 )
 
-setx ANTHROPIC_API_KEY "%APIKEY%"
+:: PowerShell でDPAPI復号して環境変数に登録
+for /f "delims=" %%i in ('powershell -NoProfile -Command ^
+  "Add-Type -AssemblyName System.Security;" ^
+  "$b64 = Get-Content \"$env:APPDATA\MyKomon\apikey.enc\" -Encoding UTF8;" ^
+  "$enc = [System.Convert]::FromBase64String($b64);" ^
+  "$dec = [System.Security.Cryptography.ProtectedData]::Unprotect($enc, $null, 'CurrentUser');" ^
+  "[System.Text.Encoding]::UTF8.GetString($dec)"') do set APIKEY=%%i
 
-echo.
-echo 設定が完了しました。
-echo 次回から「起動.bat」を使うと API キーが自動入力されます。
-echo （この設定は PC を再起動しても保持されます）
+if "%APIKEY%"=="" (
+    echo エラー：APIキーの復号に失敗しました。
+    echo 管理者に再度「管理者用APIキー暗号化.bat」の実行を依頼してください。
+    pause
+    exit /b
+)
+
+setx ANTHROPIC_API_KEY "%APIKEY%" > nul
+
+echo 完了しました。APIキーが環境変数に登録されました。
+echo 次回から「起動.bat」を使うとAPIキーが自動入力されます。
 echo.
 pause
