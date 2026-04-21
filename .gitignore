@@ -1,0 +1,17 @@
+# 認証情報（絶対にコミットしない）
+csv-export/config.json
+
+# デバッグファイル
+csv-export/debug_*.html
+csv-export/login_screenshot.png
+csv-export/export_screenshot.png
+csv-export/tmp_downloads/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Streamlit
+.streamlit/secrets.toml
