@@ -6,6 +6,8 @@ from parser import staff_column, client_column, date_column, text_column
 
 
 def _tagged(df: pd.DataFrame) -> pd.DataFrame:
+    if "has_tag" not in df.columns:
+        return pd.DataFrame()
     return df[df["has_tag"] == True].copy()
 
 

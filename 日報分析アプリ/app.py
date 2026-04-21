@@ -14,6 +14,8 @@ import streamlit as st
 import streamlit.components.v1 as components
 from dateutil.relativedelta import relativedelta
 
+import markdown as md_lib
+
 import analyzer
 import ai_report
 from parser import load_csvs
@@ -376,7 +378,52 @@ with tab5:
 
     if "ai_report" in st.session_state:
         st.markdown("### レポート")
-        st.markdown(st.session_state.ai_report)
+        full_report_md = ai_report.ANALYSIS_PREMISES_MD + st.session_state.ai_report
+        st.markdown(full_report_md)
+
+        report_body_html = md_lib.markdown(
+            full_report_md, extensions=["tables", "nl2br"]
+        )
+        print_page_html = f"""<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>AI分析レポート</title>
+<style>
+  body {{ font-family: 'Yu Gothic', 'Meiryo', 'Hiragino Sans', sans-serif;
+         max-width: 800px; margin: 2em auto; line-height: 1.8; font-size: 11pt; color: #222; }}
+  h1, h2, h3 {{ border-bottom: 1px solid #ccc; padding-bottom: 0.3em; margin-top: 1.5em; }}
+  table {{ border-collapse: collapse; width: 100%; margin: 1em 0; }}
+  th, td {{ border: 1px solid #ccc; padding: 8px; text-align: left; }}
+  th {{ background: #f5f5f5; }}
+  @media print {{ @page {{ margin: 2cm; }} body {{ margin: 0; }} }}
+</style>
+</head>
+<body>
+<h1>AI分析レポート</h1>
+{report_body_html}
+</body>
+</html>"""
+        components.html(
+            f"""
+            <button onclick="doPrint()" style="
+                padding:8px 20px; font-size:14px; cursor:pointer;
+                background:#ff4b4b; color:white; border:none; border-radius:6px;
+                font-family:sans-serif; margin-top:4px;">
+              🖨️ このレポートを印刷
+            </button>
+            <script>
+            function doPrint() {{
+                var w = window.open('', '_blank');
+                w.document.write({json.dumps(print_page_html)});
+                w.document.close();
+                w.focus();
+                w.print();
+            }}
+            </script>
+            """,
+            height=60,
+        )
 
         st.divider()
         st.markdown("### フォローアップ質問")
