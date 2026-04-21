@@ -11,11 +11,22 @@ from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+import streamlit.components.v1 as components
 from dateutil.relativedelta import relativedelta
 
 import analyzer
 import ai_report
 from parser import load_csvs
+
+MANUAL_PATH = Path(__file__).parent / "使用マニュアル.md"
+
+
+@st.dialog("📖 使用マニュアル", width="large")
+def show_manual():
+    if MANUAL_PATH.exists():
+        st.markdown(MANUAL_PATH.read_text(encoding="utf-8"))
+    else:
+        st.warning("マニュアルファイルが見つかりません。")
 
 EXPORT_SCRIPT = Path(__file__).parent.parent / "csv-export" / "mykomon_export_http.py"
 
@@ -55,6 +66,16 @@ with st.sidebar:
     st.title("⚙️ 設定")
     cfg = load_config()
 
+    _c1, _c2 = st.columns(2)
+    with _c1:
+        if st.button("📖 マニュアル", use_container_width=True):
+            show_manual()
+    with _c2:
+        if st.button("🖨️ 印刷", use_container_width=True):
+            components.html("<script>window.parent.print();</script>", height=0)
+
+    st.divider()
+
     # --- データ取得セクション ---
     st.markdown("### 📥 データ取得")
     now = datetime.now()
@@ -82,11 +103,11 @@ with st.sidebar:
     default_dir = cfg.get("save_dir", "")
     save_dir = st.text_input("CSVフォルダ", value=default_dir,
                               help="csv-export の config.json と同じパス")
-    api_key = st.text_input("Anthropic API キー", type="password",
-                             value=os.environ.get("ANTHROPIC_API_KEY", ""),
-                             help="未入力の場合は環境変数 ANTHROPIC_API_KEY を使用")
-    if api_key:
-        os.environ["ANTHROPIC_API_KEY"] = api_key
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        api_key = st.text_input("Anthropic API キー", type="password",
+                                 help="未設定の場合のみ入力してください")
+        if api_key:
+            os.environ["ANTHROPIC_API_KEY"] = api_key
 
     load_btn = st.button("🔄 既存CSVを再読み込み", use_container_width=True)
 

@@ -113,11 +113,11 @@ with st.sidebar:
     default_dir = cfg.get("save_dir", "")
     save_dir = st.text_input("CSVフォルダ", value=default_dir,
                               help="csv-export の config.json と同じパス")
-    api_key = st.text_input("Anthropic API キー", type="password",
-                             value=os.environ.get("ANTHROPIC_API_KEY", ""),
-                             help="未入力の場合は環境変数 ANTHROPIC_API_KEY を使用")
-    if api_key:
-        os.environ["ANTHROPIC_API_KEY"] = api_key
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        api_key = st.text_input("Anthropic API キー", type="password",
+                                 help="未設定の場合のみ入力してください")
+        if api_key:
+            os.environ["ANTHROPIC_API_KEY"] = api_key
 
     load_btn = st.button("🔄 既存CSVを再読み込み", use_container_width=True)
 
