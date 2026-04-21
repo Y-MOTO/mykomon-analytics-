@@ -204,8 +204,16 @@ def export_csv(session, year, month, save_dir):
     return str(save_path)
 
 
-def main(year=None, month=None):
-    cfg = load_config()
+def main(year=None, month=None, username=None, password=None, save_dir=None):
+    cfg = load_config() if CONFIG_PATH.exists() else {}
+
+    username  = username  or cfg.get("username")
+    password  = password  or cfg.get("password")
+    save_dir  = save_dir  or cfg.get("save_dir", ".")
+
+    if not username or not password:
+        print("エラー: MyKomon ID・パスワードを指定してください。")
+        sys.exit(1)
 
     if year is None or month is None:
         months_back = int(cfg.get("months_back", 1))
@@ -213,15 +221,20 @@ def main(year=None, month=None):
         year, month = target.year, target.month
 
     session = make_session()
-    login(session, cfg["username"], cfg["password"])
-    export_csv(session, year, month, cfg["save_dir"])
+    login(session, username, password)
+    export_csv(session, year, month, save_dir)
     print("完了しました。")
 
 
 if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser()
-    ap.add_argument("--year",  type=int, default=None)
-    ap.add_argument("--month", type=int, default=None)
+    ap.add_argument("--year",     type=int, default=None)
+    ap.add_argument("--month",    type=int, default=None)
+    ap.add_argument("--username", type=str, default=None)
+    ap.add_argument("--password", type=str, default=None)
+    ap.add_argument("--save-dir", type=str, default=None, dest="save_dir")
     args = ap.parse_args()
-    main(year=args.year, month=args.month)
+    main(year=args.year, month=args.month,
+         username=args.username, password=args.password,
+         save_dir=args.save_dir)

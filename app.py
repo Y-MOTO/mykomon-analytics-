@@ -56,6 +56,15 @@ with st.sidebar:
     cfg = load_config()
 
     # --- データ取得セクション ---
+    # MyKomon認証（クラウド: 常に表示、ローカル: config.jsonがなければ表示）
+    st.markdown("### 🔐 MyKomon認証")
+    _cfg_user = cfg.get("username", "")
+    _cfg_pass = cfg.get("password", "")
+    mykomon_user = st.text_input("MyKomon ID", value=_cfg_user, key="mk_user")
+    mykomon_pass = st.text_input("MyKomon パスワード", type="password",
+                                  value=_cfg_pass, key="mk_pass")
+
+    st.divider()
     st.markdown("### 📥 データ取得")
     now = datetime.now()
     years = list(range(now.year - 3, now.year + 1))
@@ -103,12 +112,20 @@ if export_btn:
         status   = st.empty()
         errors   = []
 
+        # クラウド環境ではtempディレクトリを使用
+        effective_save_dir = save_dir if save_dir else tempfile.gettempdir()
+
         for i, (yr, mo) in enumerate(months):
             status.text(f"取得中: {yr}年{mo}月　({i+1} / {len(months)})")
+            cmd = [sys.executable, str(EXPORT_SCRIPT),
+                   "--year", str(yr), "--month", str(mo),
+                   "--save-dir", effective_save_dir]
+            if mykomon_user:
+                cmd += ["--username", mykomon_user]
+            if mykomon_pass:
+                cmd += ["--password", mykomon_pass]
             result = subprocess.run(
-                [sys.executable, str(EXPORT_SCRIPT),
-                 "--year", str(yr), "--month", str(mo)],
-                capture_output=True, text=True, encoding="utf-8", errors="replace"
+                cmd, capture_output=True, text=True, encoding="utf-8", errors="replace"
             )
             if result.returncode != 0:
                 errors.append(f"{yr}年{mo}月: {result.stderr[-200:]}")
@@ -121,9 +138,11 @@ if export_btn:
             st.success(f"{len(months)} ヶ月分のエクスポートが完了しました。データを読み込みます…")
 
         # エクスポート後に自動でデータを再読み込み
-        if save_dir:
-            df_new = load_data(save_dir)
+        reload_dir = save_dir if save_dir else effective_save_dir
+        if reload_dir:
+            df_new = load_data(reload_dir)
             st.session_state.df = df_new
+            save_dir = reload_dir
             st.session_state.summary_text = analyzer.build_summary_text(df_new)
             st.session_state.conversation = []
             st.rerun()
