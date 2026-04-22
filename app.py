@@ -22,6 +22,7 @@ import ai_report
 from parser import load_csvs
 
 MANUAL_PATH = Path(__file__).parent / "manual.md"
+INSTRUCTION_PATH = Path(__file__).parent / "instruction_director.md"
 
 
 @st.dialog("📖 使用マニュアル", width="large")
@@ -30,6 +31,14 @@ def show_manual():
         st.markdown(MANUAL_PATH.read_text(encoding="utf-8"))
     else:
         st.warning("マニュアルファイルが見つかりません。")
+
+
+@st.dialog("📋 所長向けインストラクション", width="large")
+def show_instruction():
+    if INSTRUCTION_PATH.exists():
+        st.markdown(INSTRUCTION_PATH.read_text(encoding="utf-8"))
+    else:
+        st.warning("インストラクションファイルが見つかりません。")
 
 EXPORT_SCRIPT = Path(__file__).parent / "csv_export" / "mykomon_export_http.py"
 
@@ -76,6 +85,46 @@ with st.sidebar:
     with _c2:
         if st.button("🖨️ 印刷", use_container_width=True):
             components.html("<script>window.parent.print();</script>", height=0)
+
+    _c3, _c4 = st.columns(2)
+    with _c3:
+        if st.button("📋 所長向け説明", use_container_width=True):
+            show_instruction()
+    with _c4:
+        if INSTRUCTION_PATH.exists():
+            _inst_html = md_lib.markdown(
+                INSTRUCTION_PATH.read_text(encoding="utf-8"),
+                extensions=["tables", "nl2br"],
+            )
+            _inst_print_html = f"""<!DOCTYPE html>
+<html lang="ja"><head><meta charset="UTF-8">
+<title>所長向けインストラクション</title>
+<style>
+  body {{ font-family: 'Yu Gothic','Meiryo',sans-serif; max-width:800px;
+         margin:2em auto; line-height:1.8; font-size:11pt; color:#222; }}
+  h1,h2,h3 {{ border-bottom:1px solid #ccc; padding-bottom:0.3em; margin-top:1.5em; }}
+  table {{ border-collapse:collapse; width:100%; margin:1em 0; }}
+  th,td {{ border:1px solid #ccc; padding:8px; text-align:left; }}
+  th {{ background:#f5f5f5; }}
+  pre {{ background:#f8f8f8; padding:1em; border-radius:4px; overflow-x:auto; }}
+  blockquote {{ border-left:4px solid #ccc; margin:0; padding-left:1em; color:#555; }}
+  @media print {{ @page {{ margin:2cm; }} body {{ margin:0; }} }}
+</style></head><body>
+{_inst_html}
+<script>window.print();</script>
+</body></html>"""
+            components.html(
+                f"""<button onclick="(function(){{
+                    var w=window.open('','_blank');
+                    w.document.write({json.dumps(_inst_print_html)});
+                    w.document.close(); w.focus();
+                }})()" style="width:100%;padding:6px 4px;font-size:13px;
+                cursor:pointer;background:#ff4b4b;color:white;border:none;
+                border-radius:6px;font-family:sans-serif;">
+                🖨️ 印刷
+                </button>""",
+                height=40,
+            )
 
     st.divider()
 
