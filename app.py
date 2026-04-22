@@ -155,22 +155,25 @@ with st.sidebar:
     export_btn = st.button("📥 CSVをエクスポート実行", use_container_width=True,
                            type="primary")
 
-    st.divider()
-
-    # --- 分析設定 ---
-    st.markdown("**📂 分析対象**")
-    default_dir = cfg.get("save_dir", "")
-    save_dir = st.text_input("CSVフォルダ", value=default_dir,
-                              label_visibility="collapsed",
-                              placeholder="CSVフォルダパス",
-                              help="csv-export の config.json と同じパス")
     if not os.environ.get("ANTHROPIC_API_KEY"):
         api_key = st.text_input("Anthropic API キー", type="password",
                                  help="未設定の場合のみ入力してください")
         if api_key:
             os.environ["ANTHROPIC_API_KEY"] = api_key
 
-    load_btn = st.button("🔄 既存CSVを再読み込み", use_container_width=True)
+    # ローカル版のみ表示（config.jsonが存在する環境）
+    if CONFIG_PATH.exists():
+        st.divider()
+        st.markdown("**📂 分析対象**")
+        default_dir = cfg.get("save_dir", "")
+        save_dir = st.text_input("CSVフォルダ", value=default_dir,
+                                  label_visibility="collapsed",
+                                  placeholder="CSVフォルダパス",
+                                  help="csv-export の config.json と同じパス")
+        load_btn = st.button("🔄 既存CSVを再読み込み", use_container_width=True)
+    else:
+        save_dir = ""
+        load_btn = False
 
 # ── CSVエクスポート実行 ─────────────────────────────────────────────────────
 if export_btn:
