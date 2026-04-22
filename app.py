@@ -83,46 +83,64 @@ with st.sidebar:
         if st.button("📖 マニュアル", use_container_width=True):
             show_manual()
     with _c2:
-        if st.button("🖨️ 印刷", use_container_width=True):
-            components.html("<script>window.parent.print();</script>", height=0)
-
-    _c3, _c4 = st.columns(2)
-    with _c3:
         if st.button("📋 運用説明", use_container_width=True):
             show_instruction()
-    with _c4:
-        if st.button("🖨️ 印刷", use_container_width=True, key="inst_print"):
-            if INSTRUCTION_PATH.exists():
-                _inst_html = md_lib.markdown(
-                    INSTRUCTION_PATH.read_text(encoding="utf-8"),
-                    extensions=["tables", "nl2br"],
-                )
-                _inst_print_html = f"""<!DOCTYPE html>
-<html lang="ja"><head><meta charset="UTF-8">
-<title>所長向けインストラクション</title>
-<style>
-  body {{ font-family: 'Yu Gothic','Meiryo',sans-serif; max-width:800px;
-         margin:2em auto; line-height:1.8; font-size:11pt; color:#222; }}
-  h1,h2,h3 {{ border-bottom:1px solid #ccc; padding-bottom:0.3em; margin-top:1.5em; }}
-  table {{ border-collapse:collapse; width:100%; margin:1em 0; }}
-  th,td {{ border:1px solid #ccc; padding:8px; text-align:left; }}
-  th {{ background:#f5f5f5; }}
-  pre {{ background:#f8f8f8; padding:1em; border-radius:4px; overflow-x:auto; }}
-  blockquote {{ border-left:4px solid #ccc; margin:0; padding-left:1em; color:#555; }}
-  @media print {{ @page {{ margin:2cm; }} body {{ margin:0; }} }}
-</style></head><body>
-{_inst_html}
-</body></html>"""
-                components.html(
-                    f"""<script>
-                    var w = window.open('', '_blank');
-                    w.document.write({json.dumps(_inst_print_html, ensure_ascii=False)});
-                    w.document.close();
-                    w.focus();
-                    w.print();
-                    </script>""",
-                    height=0,
-                )
+
+    # 印刷ボタン：HTMLボタンとして直接レンダリング（ポップアップブロック回避）
+    _print_style = (
+        "flex:1; padding:6px 4px; font-size:13px; cursor:pointer;"
+        "background:#ff4b4b; color:white; border:none; border-radius:6px;"
+        "font-family:sans-serif;"
+    )
+    _doc_style = (
+        "font-family:'Yu Gothic','Meiryo',sans-serif; max-width:800px;"
+        "margin:2em auto; line-height:1.8; font-size:11pt; color:#222;"
+    )
+    _common_css = """
+      h1,h2,h3{border-bottom:1px solid #ccc;padding-bottom:.3em;margin-top:1.5em}
+      table{border-collapse:collapse;width:100%;margin:1em 0}
+      th,td{border:1px solid #ccc;padding:8px;text-align:left}
+      th{background:#f5f5f5}
+      pre{background:#f8f8f8;padding:1em;border-radius:4px;overflow-x:auto}
+      blockquote{border-left:4px solid #ccc;margin:0;padding-left:1em;color:#555}
+      @media print{@page{margin:2cm}body{margin:0}}
+    """
+    _manual_body = md_lib.markdown(
+        MANUAL_PATH.read_text(encoding="utf-8"), extensions=["tables", "nl2br"]
+    ) if MANUAL_PATH.exists() else "<p>ファイルが見つかりません</p>"
+    _inst_body = md_lib.markdown(
+        INSTRUCTION_PATH.read_text(encoding="utf-8"), extensions=["tables", "nl2br"]
+    ) if INSTRUCTION_PATH.exists() else "<p>ファイルが見つかりません</p>"
+
+    _manual_print_html = (
+        f'<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">'
+        f'<title>使用マニュアル</title>'
+        f'<style>body{{{_doc_style}}}{_common_css}</style></head>'
+        f'<body>{_manual_body}</body></html>'
+    )
+    _inst_print_html = (
+        f'<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">'
+        f'<title>所長向けインストラクション</title>'
+        f'<style>body{{{_doc_style}}}{_common_css}</style></head>'
+        f'<body>{_inst_body}</body></html>'
+    )
+    components.html(
+        f"""
+        <div style="display:flex;gap:6px;margin-top:2px;">
+          <button style="{_print_style}" onclick="(function(){{
+            var w=window.open('','_blank');
+            w.document.write({json.dumps(_manual_print_html, ensure_ascii=False)});
+            w.document.close();w.focus();w.print();
+          }})()">🖨️ マニュアル印刷</button>
+          <button style="{_print_style}" onclick="(function(){{
+            var w=window.open('','_blank');
+            w.document.write({json.dumps(_inst_print_html, ensure_ascii=False)});
+            w.document.close();w.focus();w.print();
+          }})()">🖨️ 運用説明印刷</button>
+        </div>
+        """,
+        height=44,
+    )
 
     st.divider()
 
