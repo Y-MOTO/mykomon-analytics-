@@ -128,12 +128,16 @@ with st.sidebar:
     _inst_json   = json.dumps(_inst_print_html,   ensure_ascii=False)
     components.html(
         f"""<html><head><style>
-        body{{margin:0;padding:4px 0;font-family:sans-serif;}}
-        button{{width:49%;padding:8px 2px;font-size:12px;cursor:pointer;
-                background:#ff4b4b;color:white;border:none;border-radius:6px;}}
+        body{{margin:0;padding:2px 0;font-family:sans-serif;}}
+        .row{{display:flex;gap:4px;}}
+        button{{flex:1;padding:6px 0;font-size:11px;cursor:pointer;
+                background:#ff4b4b;color:white;border:none;border-radius:6px;
+                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
         </style></head><body>
-        <button onclick="doPrintManual()">🖨️ マニュアル印刷</button>
-        <button onclick="doPrintInst()" style="margin-left:2%;">🖨️ 運用説明印刷</button>
+        <div class="row">
+          <button onclick="doPrintManual()">🖨️ マニュアル印刷</button>
+          <button onclick="doPrintInst()">🖨️ 運用説明印刷</button>
+        </div>
         <script>
         function doPrintManual() {{
             var w = window.open('', '_blank');
@@ -147,7 +151,7 @@ with st.sidebar:
         }}
         </script>
         </body></html>""",
-        height=50,
+        height=46,
     )
 
     st.divider()
