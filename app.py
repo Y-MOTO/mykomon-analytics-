@@ -124,22 +124,36 @@ with st.sidebar:
         f'<style>body{{{_doc_style}}}{_common_css}</style></head>'
         f'<body>{_inst_body}</body></html>'
     )
+    _manual_json = json.dumps(_manual_print_html, ensure_ascii=False)
+    _inst_json   = json.dumps(_inst_print_html,   ensure_ascii=False)
     components.html(
         f"""
-        <div style="display:flex;gap:6px;margin-top:2px;">
-          <button style="{_print_style}" onclick="(function(){{
-            var w=window.open('','_blank');
-            w.document.write({json.dumps(_manual_print_html, ensure_ascii=False)});
-            w.document.close();w.focus();w.print();
-          }})()">🖨️ マニュアル印刷</button>
-          <button style="{_print_style}" onclick="(function(){{
-            var w=window.open('','_blank');
-            w.document.write({json.dumps(_inst_print_html, ensure_ascii=False)});
-            w.document.close();w.focus();w.print();
-          }})()">🖨️ 運用説明印刷</button>
-        </div>
+        <button onclick="doPrintManual()" style="
+            width:49%; padding:8px 4px; font-size:13px; cursor:pointer;
+            background:#ff4b4b; color:white; border:none; border-radius:6px;
+            font-family:sans-serif;">
+          🖨️ マニュアル印刷
+        </button>
+        <button onclick="doPrintInst()" style="
+            width:49%; padding:8px 4px; font-size:13px; cursor:pointer;
+            background:#ff4b4b; color:white; border:none; border-radius:6px;
+            font-family:sans-serif; margin-left:2%;">
+          🖨️ 運用説明印刷
+        </button>
+        <script>
+        function doPrintManual() {{
+            var w = window.open('', '_blank');
+            w.document.write({_manual_json});
+            w.document.close(); w.focus(); w.print();
+        }}
+        function doPrintInst() {{
+            var w = window.open('', '_blank');
+            w.document.write({_inst_json});
+            w.document.close(); w.focus(); w.print();
+        }}
+        </script>
         """,
-        height=44,
+        height=60,
     )
 
     st.divider()
