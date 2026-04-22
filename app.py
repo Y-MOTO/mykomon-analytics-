@@ -78,18 +78,20 @@ with st.sidebar:
     st.markdown("**⚙️ 設定**")
     cfg = load_config()
 
-    _c1, _c2, _c3, _c4 = st.columns(4)
+    _c1, _c2 = st.columns(2)
     with _c1:
-        if st.button("📖", use_container_width=True, help="使用マニュアル"):
+        if st.button("📖 マニュアル", use_container_width=True):
             show_manual()
     with _c2:
-        if st.button("🖨️", use_container_width=True, help="このページを印刷"):
+        if st.button("🖨️ 印刷", use_container_width=True):
             components.html("<script>window.parent.print();</script>", height=0)
+
+    _c3, _c4 = st.columns(2)
     with _c3:
-        if st.button("📋", use_container_width=True, help="所長向け運用説明"):
+        if st.button("📋 運用説明", use_container_width=True):
             show_instruction()
     with _c4:
-        if st.button("🖨️", use_container_width=True, key="inst_print", help="所長向け運用説明を印刷"):
+        if st.button("🖨️ 印刷", use_container_width=True, key="inst_print"):
             if INSTRUCTION_PATH.exists():
                 _inst_html = md_lib.markdown(
                     INSTRUCTION_PATH.read_text(encoding="utf-8"),
