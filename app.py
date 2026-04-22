@@ -127,19 +127,13 @@ with st.sidebar:
     _manual_json = json.dumps(_manual_print_html, ensure_ascii=False)
     _inst_json   = json.dumps(_inst_print_html,   ensure_ascii=False)
     components.html(
-        f"""
-        <button onclick="doPrintManual()" style="
-            width:49%; padding:8px 4px; font-size:13px; cursor:pointer;
-            background:#ff4b4b; color:white; border:none; border-radius:6px;
-            font-family:sans-serif;">
-          🖨️ マニュアル印刷
-        </button>
-        <button onclick="doPrintInst()" style="
-            width:49%; padding:8px 4px; font-size:13px; cursor:pointer;
-            background:#ff4b4b; color:white; border:none; border-radius:6px;
-            font-family:sans-serif; margin-left:2%;">
-          🖨️ 運用説明印刷
-        </button>
+        f"""<html><head><style>
+        body{{margin:0;padding:4px 0;font-family:sans-serif;}}
+        button{{width:49%;padding:8px 2px;font-size:12px;cursor:pointer;
+                background:#ff4b4b;color:white;border:none;border-radius:6px;}}
+        </style></head><body>
+        <button onclick="doPrintManual()">🖨️ マニュアル印刷</button>
+        <button onclick="doPrintInst()" style="margin-left:2%;">🖨️ 運用説明印刷</button>
         <script>
         function doPrintManual() {{
             var w = window.open('', '_blank');
@@ -152,8 +146,8 @@ with st.sidebar:
             w.document.close(); w.focus(); w.print();
         }}
         </script>
-        """,
-        height=60,
+        </body></html>""",
+        height=50,
     )
 
     st.divider()
