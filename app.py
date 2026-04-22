@@ -116,7 +116,7 @@ with st.sidebar:
             components.html(
                 f"""<button onclick="(function(){{
                     var w=window.open('','_blank');
-                    w.document.write({json.dumps(_inst_print_html)});
+                    w.document.write({json.dumps(_inst_print_html, ensure_ascii=False)});
                     w.document.close(); w.focus();
                 }})()" style="width:100%;padding:6px 4px;font-size:13px;
                 cursor:pointer;background:#ff4b4b;color:white;border:none;
