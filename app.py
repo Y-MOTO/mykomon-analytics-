@@ -91,12 +91,13 @@ with st.sidebar:
         if st.button("📋 所長向け説明", use_container_width=True):
             show_instruction()
     with _c4:
-        if INSTRUCTION_PATH.exists():
-            _inst_html = md_lib.markdown(
-                INSTRUCTION_PATH.read_text(encoding="utf-8"),
-                extensions=["tables", "nl2br"],
-            )
-            _inst_print_html = f"""<!DOCTYPE html>
+        if st.button("🖨️ 印刷", use_container_width=True, key="inst_print"):
+            if INSTRUCTION_PATH.exists():
+                _inst_html = md_lib.markdown(
+                    INSTRUCTION_PATH.read_text(encoding="utf-8"),
+                    extensions=["tables", "nl2br"],
+                )
+                _inst_print_html = f"""<!DOCTYPE html>
 <html lang="ja"><head><meta charset="UTF-8">
 <title>所長向けインストラクション</title>
 <style>
@@ -111,20 +112,17 @@ with st.sidebar:
   @media print {{ @page {{ margin:2cm; }} body {{ margin:0; }} }}
 </style></head><body>
 {_inst_html}
-<script>window.print();</script>
 </body></html>"""
-            components.html(
-                f"""<button onclick="(function(){{
-                    var w=window.open('','_blank');
+                components.html(
+                    f"""<script>
+                    var w = window.open('', '_blank');
                     w.document.write({json.dumps(_inst_print_html, ensure_ascii=False)});
-                    w.document.close(); w.focus();
-                }})()" style="width:100%;padding:6px 4px;font-size:13px;
-                cursor:pointer;background:#ff4b4b;color:white;border:none;
-                border-radius:6px;font-family:sans-serif;">
-                🖨️ 印刷
-                </button>""",
-                height=40,
-            )
+                    w.document.close();
+                    w.focus();
+                    w.print();
+                    </script>""",
+                    height=0,
+                )
 
     st.divider()
 
