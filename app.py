@@ -74,6 +74,13 @@ def load_config() -> dict:
 
 
 # ── サイドバー ──────────────────────────────────────────────────────────────
+st.markdown("""<style>
+section[data-testid="stSidebar"] .stButton button {
+    font-size: 12px !important;
+    padding: 4px 6px !important;
+}
+</style>""", unsafe_allow_html=True)
+
 with st.sidebar:
     st.markdown("**⚙️ 設定**")
     cfg = load_config()
