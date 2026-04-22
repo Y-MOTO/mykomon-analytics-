@@ -88,7 +88,7 @@ with st.sidebar:
 
     _c3, _c4 = st.columns(2)
     with _c3:
-        if st.button("📋 所長向け説明", use_container_width=True):
+        if st.button("📋 所長向け運用説明", use_container_width=True):
             show_instruction()
     with _c4:
         if st.button("🖨️ 印刷", use_container_width=True, key="inst_print"):
