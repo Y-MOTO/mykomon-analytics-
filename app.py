@@ -75,23 +75,21 @@ def load_config() -> dict:
 
 # ── サイドバー ──────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.title("⚙️ 設定")
+    st.markdown("**⚙️ 設定**")
     cfg = load_config()
 
-    _c1, _c2 = st.columns(2)
+    _c1, _c2, _c3, _c4 = st.columns(4)
     with _c1:
-        if st.button("📖 マニュアル", use_container_width=True):
+        if st.button("📖", use_container_width=True, help="使用マニュアル"):
             show_manual()
     with _c2:
-        if st.button("🖨️ 印刷", use_container_width=True):
+        if st.button("🖨️", use_container_width=True, help="このページを印刷"):
             components.html("<script>window.parent.print();</script>", height=0)
-
-    _c3, _c4 = st.columns(2)
     with _c3:
-        if st.button("📋 所長向け運用説明", use_container_width=True):
+        if st.button("📋", use_container_width=True, help="所長向け運用説明"):
             show_instruction()
     with _c4:
-        if st.button("🖨️ 印刷", use_container_width=True, key="inst_print"):
+        if st.button("🖨️", use_container_width=True, key="inst_print", help="所長向け運用説明を印刷"):
             if INSTRUCTION_PATH.exists():
                 _inst_html = md_lib.markdown(
                     INSTRUCTION_PATH.read_text(encoding="utf-8"),
@@ -127,16 +125,16 @@ with st.sidebar:
     st.divider()
 
     # --- データ取得セクション ---
-    # MyKomon認証（クラウド: 常に表示、ローカル: config.jsonがなければ表示）
-    st.markdown("### 🔐 MyKomon認証")
+    st.markdown("**🔐 MyKomon認証**")
     _cfg_user = cfg.get("username", "")
     _cfg_pass = cfg.get("password", "")
-    mykomon_user = st.text_input("MyKomon ID", value=_cfg_user, key="mk_user")
-    mykomon_pass = st.text_input("MyKomon パスワード", type="password",
-                                  value=_cfg_pass, key="mk_pass")
+    mykomon_user = st.text_input("MyKomon ID", value=_cfg_user, key="mk_user",
+                                  label_visibility="collapsed", placeholder="MyKomon ID")
+    mykomon_pass = st.text_input("パスワード", type="password",
+                                  value=_cfg_pass, key="mk_pass",
+                                  label_visibility="collapsed", placeholder="MyKomon パスワード")
 
-    st.divider()
-    st.markdown("### 📥 データ取得")
+    st.markdown("**📥 データ取得**")
     now = datetime.now()
     years = list(range(now.year - 3, now.year + 1))
 
@@ -158,9 +156,11 @@ with st.sidebar:
     st.divider()
 
     # --- 分析設定 ---
-    st.markdown("### 📂 分析対象")
+    st.markdown("**📂 分析対象**")
     default_dir = cfg.get("save_dir", "")
     save_dir = st.text_input("CSVフォルダ", value=default_dir,
+                              label_visibility="collapsed",
+                              placeholder="CSVフォルダパス",
                               help="csv-export の config.json と同じパス")
     if not os.environ.get("ANTHROPIC_API_KEY"):
         api_key = st.text_input("Anthropic API キー", type="password",
