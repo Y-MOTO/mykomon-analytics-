@@ -48,15 +48,26 @@
   var bypassIntercept = false;
 
   function setupRegisterIntercept() {
+    // 主軸: フォームのsubmitイベントをキャプチャ（最も確実）
+    document.addEventListener('submit', function(e) {
+      if (bypassIntercept) return;
+      if (!hasTag()) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        showTagWarning(null, e.target);
+      }
+    }, true);
+
+    // 補助: ボタン・リンクのクリックをキャプチャ（AJAX送信対応）
     function findAndAttach() {
       var candidates = document.querySelectorAll(
-        'button, input[type="submit"], input[type="button"]'
+        'button, input[type="submit"], input[type="button"], a'
       );
       for (var i = 0; i < candidates.length; i++) {
         var el = candidates[i];
         if (el._mkhIntercepted) continue;
         var text = (el.textContent || el.value || '').trim();
-        if (text === '登録') {
+        if (/登録/.test(text) && !/取消|削除|解除|キャンセル/.test(text)) {
           el._mkhIntercepted = true;
           (function(btn) {
             btn.addEventListener('click', function(e) {
@@ -64,7 +75,7 @@
               if (!hasTag()) {
                 e.preventDefault();
                 e.stopImmediatePropagation();
-                showTagWarning(btn);
+                showTagWarning(btn, null);
               }
             }, true);
           })(el);
@@ -76,7 +87,8 @@
     obs.observe(document.body, { childList: true, subtree: true });
   }
 
-  function showTagWarning(originalBtn) {
+  function showTagWarning(originalBtn, originalForm) {
+    if (document.getElementById('mkh-warning-overlay')) return;
     var overlay = document.createElement('div');
     overlay.id = 'mkh-warning-overlay';
     overlay.innerHTML = [
@@ -99,7 +111,11 @@
     document.getElementById('mkh-warn-skip').addEventListener('click', function() {
       document.body.removeChild(overlay);
       bypassIntercept = true;
-      originalBtn.click();
+      if (originalForm) {
+        originalForm.submit(); // form.submit()はsubmitイベントを発火しないため無限ループしない
+      } else if (originalBtn) {
+        originalBtn.click();
+      }
       bypassIntercept = false;
     });
   }
