@@ -51,6 +51,10 @@
     // documentレベルのキャプチャ: ページ上のあらゆるハンドラーより先に発火する
     document.addEventListener('click', function(e) {
       if (bypassIntercept) return;
+      // 自分のダイアログ内のクリックは無視する
+      var existingOverlay = document.getElementById('mkh-warning-overlay');
+      if (existingOverlay && existingOverlay.contains(e.target)) return;
+
       var btn = e.target.closest('button, input[type="submit"], input[type="button"], a');
       if (!btn) return;
       var text = (btn.textContent || btn.value || '').trim();
@@ -90,7 +94,8 @@
     ].join('');
     document.body.appendChild(overlay);
 
-    document.getElementById('mkh-warn-open').addEventListener('click', function() {
+    document.getElementById('mkh-warn-open').addEventListener('click', function(e) {
+      e.stopPropagation(); // クリック外れ検知でUIが即閉じるのを防ぐ
       document.body.removeChild(overlay);
       showUI();
     });
