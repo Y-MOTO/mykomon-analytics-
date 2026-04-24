@@ -26,7 +26,85 @@
     createTriggerButton(mceContainer);
     createFloatingUI();
     setupTypewriterMode();
+    setupRegisterIntercept();
   }
+
+  // ---- 登録ボタン インターセプト ----------------------------------------
+
+  function hasTag() {
+    if (typeof tinymce !== 'undefined') {
+      var editor = tinymce.get('inc_editor') || tinymce.activeEditor;
+      if (editor) {
+        var content = editor.getContent({ format: 'text' });
+        return content.indexOf('【業務区分】') !== -1;
+      }
+    }
+    var ta = document.querySelector('textarea#inc_editor')
+      || document.querySelector('textarea[name="schedule.workText"]');
+    if (ta) return ta.value.indexOf('【業務区分】') !== -1;
+    return true;
+  }
+
+  var bypassIntercept = false;
+
+  function setupRegisterIntercept() {
+    function findAndAttach() {
+      var candidates = document.querySelectorAll(
+        'button, input[type="submit"], input[type="button"]'
+      );
+      for (var i = 0; i < candidates.length; i++) {
+        var el = candidates[i];
+        if (el._mkhIntercepted) continue;
+        var text = (el.textContent || el.value || '').trim();
+        if (text === '登録') {
+          el._mkhIntercepted = true;
+          (function(btn) {
+            btn.addEventListener('click', function(e) {
+              if (bypassIntercept) return;
+              if (!hasTag()) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                showTagWarning(btn);
+              }
+            }, true);
+          })(el);
+        }
+      }
+    }
+    findAndAttach();
+    var obs = new MutationObserver(findAndAttach);
+    obs.observe(document.body, { childList: true, subtree: true });
+  }
+
+  function showTagWarning(originalBtn) {
+    var overlay = document.createElement('div');
+    overlay.id = 'mkh-warning-overlay';
+    overlay.innerHTML = [
+      '<div id="mkh-warning-dialog">',
+      '  <div id="mkh-warning-title">⚠️ タグが入力されていません</div>',
+      '  <div id="mkh-warning-body">日報補助ボタンから業務区分・ステータスを入力すると、後から集計・AI分析に活用できます。</div>',
+      '  <div id="mkh-warning-buttons">',
+      '    <button type="button" id="mkh-warn-open">タグを入力する</button>',
+      '    <button type="button" id="mkh-warn-skip">このまま登録する</button>',
+      '  </div>',
+      '</div>'
+    ].join('');
+    document.body.appendChild(overlay);
+
+    document.getElementById('mkh-warn-open').addEventListener('click', function() {
+      document.body.removeChild(overlay);
+      showUI();
+    });
+
+    document.getElementById('mkh-warn-skip').addEventListener('click', function() {
+      document.body.removeChild(overlay);
+      bypassIntercept = true;
+      originalBtn.click();
+      bypassIntercept = false;
+    });
+  }
+
+  // -----------------------------------------------------------------------
 
   function setupTypewriterMode() {
     var editor = (typeof tinymce !== 'undefined') && (tinymce.get('inc_editor') || tinymce.activeEditor);
@@ -392,7 +470,36 @@
       '  border-radius: 6px; font-size: 13px; font-weight: bold;',
       '  cursor: pointer; font-family: Meiryo, sans-serif;',
       '}',
-      '#mkh-insert-btn:hover { background: #154a8a; }'
+      '#mkh-insert-btn:hover { background: #154a8a; }',
+      '#mkh-warning-overlay {',
+      '  position: fixed; top: 0; left: 0; width: 100%; height: 100%;',
+      '  background: rgba(0,0,0,0.55); z-index: 9999999;',
+      '  display: flex; align-items: center; justify-content: center;',
+      '}',
+      '#mkh-warning-dialog {',
+      '  background: white; border-radius: 10px; padding: 28px 28px 20px;',
+      '  box-shadow: 0 8px 32px rgba(0,0,0,0.28); max-width: 360px; width: 90%;',
+      '  font-family: Meiryo, sans-serif;',
+      '}',
+      '#mkh-warning-title {',
+      '  font-size: 15px; font-weight: bold; color: #c0392b; margin-bottom: 12px;',
+      '}',
+      '#mkh-warning-body {',
+      '  font-size: 13px; color: #333; line-height: 1.6; margin-bottom: 20px;',
+      '}',
+      '#mkh-warning-buttons { display: flex; gap: 10px; }',
+      '#mkh-warn-open {',
+      '  flex: 1; padding: 10px; background: #1a56a0; color: white;',
+      '  border: none; border-radius: 6px; font-size: 13px; font-weight: bold;',
+      '  cursor: pointer; font-family: Meiryo, sans-serif;',
+      '}',
+      '#mkh-warn-open:hover { background: #154a8a; }',
+      '#mkh-warn-skip {',
+      '  flex: 1; padding: 10px; background: white; color: #777;',
+      '  border: 1.5px solid #ccc; border-radius: 6px; font-size: 12px;',
+      '  cursor: pointer; font-family: Meiryo, sans-serif;',
+      '}',
+      '#mkh-warn-skip:hover { background: #f5f5f5; color: #555; }'
     ].join('\n');
     document.head.appendChild(style);
   }

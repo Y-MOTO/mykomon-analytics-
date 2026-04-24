@@ -291,7 +291,8 @@ if d_col:
         min_d = dates.min().strftime("%Y年%#m月")
         max_d = dates.max().strftime("%Y年%#m月")
         period_str = min_d if min_d == max_d else f"{min_d} 〜 {max_d}"
-        st.info(f"📅 読み込み期間：**{period_str}**　｜　全 {len(df):,} 件　｜　タグ付き {len(tagged):,} 件")
+        tag_rate_pct = round(len(tagged) / len(df) * 100, 1) if len(df) > 0 else 0.0
+        st.info(f"📅 読み込み期間：**{period_str}**　｜　全 {len(df):,} 件　｜　タグ付き {len(tagged):,} 件（{tag_rate_pct}%）")
 
 if tagged.empty:
     st.caption("タグ付き日報はまだありません。全件ベースの活動量分析を表示しています。")
@@ -324,6 +325,28 @@ with tab1:
             st.plotly_chart(fig, use_container_width=True)
         with col_b:
             st.dataframe(sa, use_container_width=True, hide_index=True)
+
+    st.divider()
+    st.subheader("担当者別 拡張機能使用率（タグ付き率）")
+    tr = analyzer.staff_tag_rate(df)
+    if tr.empty:
+        st.info("担当者列が見つかりません")
+    else:
+        col_a, col_b = st.columns([3, 2])
+        with col_a:
+            fig = px.bar(
+                tr,
+                x="担当者", y="タグ付き率(%)",
+                color="タグ付き率(%)",
+                color_continuous_scale=["#e05252", "#f5c518", "#27ae60"],
+                range_color=[0, 100],
+                title="担当者別 タグ付き率（%）　←低いほど未使用",
+            )
+            fig.update_xaxes(tickangle=45)
+            fig.update_yaxes(range=[0, 100])
+            st.plotly_chart(fig, use_container_width=True)
+        with col_b:
+            st.dataframe(tr, use_container_width=True, hide_index=True)
 
     if not tagged.empty:
         st.divider()
