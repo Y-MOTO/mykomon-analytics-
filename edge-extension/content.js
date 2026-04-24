@@ -48,7 +48,22 @@
   var bypassIntercept = false;
 
   function setupRegisterIntercept() {
-    // 主軸: フォームのsubmitイベントをキャプチャ（最も確実）
+    // documentレベルのキャプチャ: ページ上のあらゆるハンドラーより先に発火する
+    document.addEventListener('click', function(e) {
+      if (bypassIntercept) return;
+      var btn = e.target.closest('button, input[type="submit"], input[type="button"], a');
+      if (!btn) return;
+      var text = (btn.textContent || btn.value || '').trim();
+      if (/登録/.test(text) && !/取消|削除|解除|キャンセル/.test(text)) {
+        if (!hasTag()) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          showTagWarning(btn, null);
+        }
+      }
+    }, true);
+
+    // フォームsubmitも念のため捕捉
     document.addEventListener('submit', function(e) {
       if (bypassIntercept) return;
       if (!hasTag()) {
@@ -57,34 +72,6 @@
         showTagWarning(null, e.target);
       }
     }, true);
-
-    // 補助: ボタン・リンクのクリックをキャプチャ（AJAX送信対応）
-    function findAndAttach() {
-      var candidates = document.querySelectorAll(
-        'button, input[type="submit"], input[type="button"], a'
-      );
-      for (var i = 0; i < candidates.length; i++) {
-        var el = candidates[i];
-        if (el._mkhIntercepted) continue;
-        var text = (el.textContent || el.value || '').trim();
-        if (/登録/.test(text) && !/取消|削除|解除|キャンセル/.test(text)) {
-          el._mkhIntercepted = true;
-          (function(btn) {
-            btn.addEventListener('click', function(e) {
-              if (bypassIntercept) return;
-              if (!hasTag()) {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                showTagWarning(btn, null);
-              }
-            }, true);
-          })(el);
-        }
-      }
-    }
-    findAndAttach();
-    var obs = new MutationObserver(findAndAttach);
-    obs.observe(document.body, { childList: true, subtree: true });
   }
 
   function showTagWarning(originalBtn, originalForm) {
