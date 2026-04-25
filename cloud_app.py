@@ -681,7 +681,8 @@ elif page == "💼 人事経営相談":
 </style>
 <div class="consult-header">
   <h1>💼 人事経営相談AI ── 計画と現実のずれを解決する</h1>
-  <p>人事制度改革の実施中に生じる「うまくいかない」を入力すると、根本原因と改善策を提案します</p>
+  <p>人事制度改革の実施中に生じる「うまくいかない」を入力すると、根本原因と改善策を提案します。<br>
+  日報データに基づく自社分析だけでなく、<strong>G8諸国・世界標準の人事事例</strong>を参照した幅広い人事経営相談にも対応します。</p>
 </div>
 """, unsafe_allow_html=True)
     st.markdown('<span class="phase-badge">現在：Phase 1 ── 業務可視化の定着期</span>',
