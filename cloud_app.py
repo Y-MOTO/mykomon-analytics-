@@ -4,9 +4,13 @@ MyKomon 業務分析 & 人事経営相談 ── クラウド統合版
 """
 import json
 import os
+import subprocess
+import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
+
+from dateutil.relativedelta import relativedelta
 
 import anthropic
 import markdown as md_lib
@@ -26,6 +30,7 @@ from parser import load_csvs
 MANUAL_PATH         = Path(__file__).parent / "使用マニュアル.md"
 CONSULT_MANUAL_PATH = Path(__file__).parent / "人事経営相談アプリ_使用マニュアル.md"
 INSTRUCTION_PATH    = Path(__file__).parent / "instruction_director.md"
+EXPORT_SCRIPT       = Path(__file__).parent / "csv_export" / "mykomon_export_http.py"
 
 GAP_CATEGORIES = [
     "（自動判断）", "ボトムアップ・自主経営", "業務の見える化・日報",
@@ -86,6 +91,15 @@ def show_consult_manual():
 # ────────────────────────────────────────────────────────────────
 # ユーティリティ
 # ────────────────────────────────────────────────────────────────
+def get_months_in_range(sy, sm, ey, em):
+    months, cur = [], datetime(sy, sm, 1)
+    end = datetime(ey, em, 1)
+    while cur <= end:
+        months.append((cur.year, cur.month))
+        cur += relativedelta(months=1)
+    return months
+
+
 def call_claude_consult(conversation: list) -> str:
     client = anthropic.Anthropic(api_key=get_api_key())
     response = client.messages.create(
@@ -238,14 +252,40 @@ if page == "📊 日報分析":
         )
 
         st.divider()
-        st.markdown("**📂 CSVアップロード**")
+        st.markdown("**🔐 MyKomon認証**")
+        mykomon_user = st.text_input("MyKomon ID", key="mk_user",
+                                      label_visibility="collapsed",
+                                      placeholder="MyKomon ID")
+        mykomon_pass = st.text_input("パスワード", type="password", key="mk_pass",
+                                      label_visibility="collapsed",
+                                      placeholder="MyKomon パスワード")
+
+        st.markdown("**📥 データ取得**")
+        _now = datetime.now()
+        _years = list(range(_now.year - 3, _now.year + 1))
+        _c1, _c2 = st.columns(2)
+        with _c1:
+            start_year  = st.selectbox("開始年", _years, index=len(_years) - 1, key="sy")
+            start_month = st.selectbox("開始月", range(1, 13),
+                                       index=max(0, _now.month - 4), key="sm",
+                                       format_func=lambda m: f"{m}月")
+        with _c2:
+            end_year    = st.selectbox("終了年", _years, index=len(_years) - 1, key="ey")
+            end_month   = st.selectbox("終了月", range(1, 13),
+                                       index=max(0, _now.month - 2), key="em",
+                                       format_func=lambda m: f"{m}月")
+        export_btn = st.button("📥 CSVをエクスポート実行", use_container_width=True,
+                               type="primary")
+
+        st.divider()
+        st.markdown("**📂 CSVアップロード**（手動）")
         uploaded_files = st.file_uploader(
             "MyKomonからエクスポートしたCSVをアップロード",
             type="csv",
             accept_multiple_files=True,
             label_visibility="collapsed",
         )
-        if st.button("📥 CSVを読み込む", use_container_width=True, type="primary",
+        if st.button("📥 CSVを読み込む", use_container_width=True,
                      disabled=not uploaded_files):
             with st.spinner("読み込み中..."):
                 try:
@@ -262,12 +302,56 @@ if page == "📊 日報分析":
                 except Exception as e:
                     st.error(f"読み込みエラー: {e}")
 
+    # ── CSVエクスポート実行 ───────────────────────────────────────
+    if export_btn:
+        months = get_months_in_range(start_year, start_month, end_year, end_month)
+        if not months:
+            st.error("終了月が開始月より前になっています。")
+        elif not mykomon_user or not mykomon_pass:
+            st.error("MyKomon IDとパスワードを入力してください。")
+        elif not EXPORT_SCRIPT.exists():
+            st.error(f"エクスポートスクリプトが見つかりません: {EXPORT_SCRIPT}")
+        else:
+            st.info(f"MyKomonにログインして {len(months)} ヶ月分をエクスポートします…")
+            progress = st.progress(0)
+            status   = st.empty()
+            errors   = []
+            tmp_dir  = tempfile.mkdtemp()
+
+            for i, (yr, mo) in enumerate(months):
+                status.text(f"取得中: {yr}年{mo}月　({i+1} / {len(months)})")
+                cmd = [sys.executable, str(EXPORT_SCRIPT),
+                       "--year", str(yr), "--month", str(mo),
+                       "--save-dir", tmp_dir,
+                       "--username", mykomon_user,
+                       "--password", mykomon_pass]
+                result = subprocess.run(
+                    cmd, capture_output=True, text=True,
+                    encoding="utf-8", errors="replace"
+                )
+                if result.returncode != 0:
+                    errors.append(f"{yr}年{mo}月: {result.stderr[-300:]}")
+                progress.progress((i + 1) / len(months))
+
+            status.empty()
+            if errors:
+                st.error("エクスポートに失敗しました:\n" + "\n".join(errors))
+            else:
+                with st.spinner("データを読み込み中..."):
+                    df_loaded = load_csvs(tmp_dir)
+                    st.session_state.df = df_loaded
+                    st.session_state.summary_text = analyzer.build_summary_text(df_loaded)
+                    st.session_state.ai_report = None
+                    st.session_state.analysis_conversation = []
+                st.success(f"{len(months)} ヶ月分のエクスポートが完了しました。{len(df_loaded):,} 件読み込みました。")
+                st.rerun()
+
     # ── メインUI ──────────────────────────────────────────────────
     st.title("📊 MyKomon 日報分析ダッシュボード")
 
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
-        st.info("サイドバーからCSVファイルをアップロードして「CSVを読み込む」を押してください。")
+        st.info("サイドバーでMyKomon IDとパスワードを入力し「CSVをエクスポート実行」を押してください。\nまたはCSVファイルを手動アップロードすることもできます。")
         st.stop()
 
     tagged = df[df["has_tag"] == True].copy() if "has_tag" in df.columns else pd.DataFrame()
