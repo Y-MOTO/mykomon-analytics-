@@ -1,7 +1,9 @@
 """
 人事経営相談AIシステム ── 知識ベース
 御社（55名・会計事務所）の人事制度改革計画をシステムプロンプト用テキストとして提供する
+hr_research/*.md に追加した研究ファイルは起動時に自動でプロンプトに追加される
 """
+from pathlib import Path
 
 COMPANY_PROFILE = """
 【御社のプロフィール】
@@ -223,6 +225,23 @@ CURRENT_STATUS = """
 """
 
 
+def _load_hr_research() -> str:
+    """hr_research/*.md を読み込んで追加知識テキストを返す（README.md は除外）"""
+    research_dir = Path(__file__).parent / "hr_research"
+    if not research_dir.exists():
+        return ""
+    texts = []
+    for md_file in sorted(research_dir.glob("*.md")):
+        if md_file.name.lower() == "readme.md":
+            continue
+        content = md_file.read_text(encoding="utf-8").strip()
+        if content:
+            texts.append(f"【追加研究資料: {md_file.stem}】\n{content}")
+    if not texts:
+        return ""
+    return "\n\n━━━━ 追加研究知識ベース ━━━━\n\n" + "\n\n".join(texts)
+
+
 def build_system_prompt() -> str:
     """Claude API に渡すシステムプロンプトを生成する"""
     return f"""あなたは会計事務所の経営者を支援する人事・組織コンサルタントAIです。
@@ -242,7 +261,7 @@ def build_system_prompt() -> str:
 {G8_DETAILED}
 {GENERAL_MGMT_HR}
 {RISKS}
-{CURRENT_STATUS}
+{CURRENT_STATUS}{_load_hr_research()}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 【回答の形式】
