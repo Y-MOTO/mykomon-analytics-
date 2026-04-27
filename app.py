@@ -705,6 +705,12 @@ with tab6:
 <div class="consult-header">
   <h1>💼 人事経営相談AI ── 計画と現実のずれを解決する</h1>
   <p>「うまくいかない」を入力すると、根本原因と改善策を提案します。G8諸国・世界標準の人事事例も参照します。</p>
+  <p style="margin-top:.6rem;font-size:.76rem;color:#b8d0f0;line-height:1.7;">
+    <b style="color:#d6e8ff;">相談できる主な内容：</b><br>
+    ボトムアップ・自主経営 ／ 業務の見える化・日報活用 ／ 評価制度・人事考課 ／ 給与・報酬体系 ／
+    職階・役割分担 ／ 有資格者の処遇 ／ 職員の教育・育成 ／ 採用・離職対策 ／
+    G8各国の人事事例研究 ／ 心理的安全性・組織文化 ／ 経営者の人事一般相談
+  </p>
 </div>
 """, unsafe_allow_html=True)
     st.markdown('<span class="phase-badge">現在：Phase 1 ── 業務可視化の定着期</span>',
