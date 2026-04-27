@@ -665,7 +665,7 @@ with tab5:
             else:
                 gap["monthly_stuck_rates"] = {}
             st.session_state.gap_data = gap
-            st.session_state.consult_prefill = format_gap_prefill(gap)
+            st.session_state["consult_question_input"] = format_gap_prefill(gap)
             st.success("✅ 送りました。「💼 人事経営相談」タブを開いてください。")
 
         st.divider()
@@ -729,7 +729,7 @@ with tab6:
                     st.metric("詰まり件数", gap_data.get("stuck_count", 0))
                 if st.button("📥 この結果を相談入力欄にセット", use_container_width=True,
                              type="primary", key="use_gap_data"):
-                    st.session_state.consult_prefill = format_gap_prefill(gap_data)
+                    st.session_state["consult_question_input"] = format_gap_prefill(gap_data)
                     st.rerun()
 
         selected_cat = st.selectbox("相談カテゴリ（任意）", GAP_CATEGORIES)
@@ -753,13 +753,12 @@ with tab6:
             for i, ex in enumerate(examples):
                 with cols[i % 2]:
                     if st.button(ex, key=f"cex_{i}", use_container_width=True):
-                        st.session_state.consult_prefill = ex
+                        st.session_state["consult_question_input"] = ex
                         st.rerun()
 
-        prefill = st.session_state.pop("consult_prefill", "")
         question = st.text_area(
             "計画と現実のずれ・困っていること",
-            value=prefill,
+            value="",
             height=120,
             placeholder="例：ボトムアップ会議を始めたが誰も発言しない。何が原因で、どう対処すればよいか。",
             key="consult_question_input",
