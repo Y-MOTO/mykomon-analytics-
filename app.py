@@ -81,7 +81,14 @@ def call_claude_consult(conversation: list) -> str:
 
 
 def format_gap_prefill(gap: dict) -> str:
-    lines = [
+    lines = []
+    if gap.get("ai_report"):
+        lines += [
+            "【AI分析レポート（Claude生成）】",
+            gap["ai_report"],
+            "\n---",
+        ]
+    lines += [
         f"【日報分析データ {gap.get('period', '不明')}】（{gap.get('generated_at', '')} 取得）",
         (f"全日報件数：{gap.get('total_records', 0):,}件　"
          f"タグ付き：{gap.get('tagged_records', 0):,}件"
@@ -637,6 +644,7 @@ with tab5:
                 "tag_rate_pct": float(tag_rate_pct),
                 "total_records": int(len(df)),
                 "tagged_records": int(len(tagged)),
+                "ai_report": st.session_state.get("ai_report", ""),
             }
             _sb = analyzer.staff_blocking_summary(df)
             gap["stuck_count"] = int(_sb["詰まり件数"].sum()) if not _sb.empty else 0
