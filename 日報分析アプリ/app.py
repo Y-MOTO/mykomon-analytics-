@@ -242,28 +242,25 @@ st.title("📊 MyKomon 日報分析ダッシュボード")
 
 df = st.session_state.get("df", pd.DataFrame())
 
-if df.empty:
-    st.info("サイドバーでMyKomon IDとパスワードを入力し「CSVをエクスポート実行」を押してください。\n"
-            "または手動でCSVファイルをアップロードすることもできます。")
-    st.stop()
-
-tagged = df[df["has_tag"] == True].copy() if "has_tag" in df.columns else pd.DataFrame()
+tagged = df[df["has_tag"] == True].copy() if ("has_tag" in df.columns and not df.empty) else pd.DataFrame()
 
 from parser import date_column as _date_col
-d_col = _date_col(df)
 period_str = "不明"
 tag_rate_pct = 0.0
-if d_col:
-    dates = pd.to_datetime(df[d_col], errors="coerce").dropna()
-    if not dates.empty:
-        min_d = dates.min().strftime("%Y年%-m月") if os.name != "nt" else dates.min().strftime("%Y年%#m月")
-        max_d = dates.max().strftime("%Y年%-m月") if os.name != "nt" else dates.max().strftime("%Y年%#m月")
-        period_str = min_d if min_d == max_d else f"{min_d} 〜 {max_d}"
-        tag_rate_pct = round(len(tagged) / len(df) * 100, 1) if len(df) > 0 else 0.0
-        st.info(f"📅 読み込み期間：**{period_str}**　｜　全 {len(df):,} 件　｜　タグ付き {len(tagged):,} 件（{tag_rate_pct}%）")
+if not df.empty:
+    d_col = _date_col(df)
+    if d_col:
+        dates = pd.to_datetime(df[d_col], errors="coerce").dropna()
+        if not dates.empty:
+            min_d = dates.min().strftime("%Y年%-m月") if os.name != "nt" else dates.min().strftime("%Y年%#m月")
+            max_d = dates.max().strftime("%Y年%-m月") if os.name != "nt" else dates.max().strftime("%Y年%#m月")
+            period_str = min_d if min_d == max_d else f"{min_d} 〜 {max_d}"
+            tag_rate_pct = round(len(tagged) / len(df) * 100, 1) if len(df) > 0 else 0.0
+            st.info(f"📅 読み込み期間：**{period_str}**　｜　全 {len(df):,} 件　｜　タグ付き {len(tagged):,} 件（{tag_rate_pct}%）")
+    if tagged.empty:
+        st.caption("タグ付き日報はまだありません。全件ベースの活動量分析を表示しています。")
 
-if tagged.empty:
-    st.caption("タグ付き日報はまだありません。全件ベースの活動量分析を表示しています。")
+_NO_DATA = "データ未読込です。サイドバーからCSVをエクスポートまたはアップロードしてください。"
 
 # ── タブ ────────────────────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
@@ -277,6 +274,8 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 
 # ─ TAB 1 ────────────────────────────────────────────────────────────────────
 with tab1:
+    if df.empty:
+        st.info(_NO_DATA)
     st.subheader("担当者別 活動量（全件）")
     sa = analyzer.staff_activity_summary(df)
     if sa.empty:
@@ -417,17 +416,21 @@ with tab5:
 
     if not get_api_key():
         st.warning("サイドバーに Anthropic API キーを入力してください。")
-        st.stop()
 
-    summary_text = st.session_state.get("summary_text", "")
-    if not summary_text:
-        summary_text = analyzer.build_summary_text(df)
-        st.session_state.summary_text = summary_text
+    summary_text = ""
+    if df.empty:
+        st.info(_NO_DATA)
+    elif get_api_key():
+        summary_text = st.session_state.get("summary_text", "")
+        if not summary_text:
+            summary_text = analyzer.build_summary_text(df)
+            st.session_state.summary_text = summary_text
 
-    with st.expander("集計データ（AIへの入力）", expanded=False):
-        st.text(summary_text)
+    if summary_text:
+        with st.expander("集計データ（AIへの入力）", expanded=False):
+            st.text(summary_text)
 
-    if st.button("📝 AIレポートを生成", use_container_width=True):
+    if st.button("📝 AIレポートを生成", use_container_width=True, disabled=not summary_text):
         with st.spinner("Claude が分析中... (30〜60秒)"):
             try:
                 report = ai_report.generate_report(summary_text)
@@ -526,7 +529,6 @@ with tab6:
 
     if not get_api_key():
         st.error("サイドバーに Anthropic API キーを入力してください。")
-        st.stop()
 
     col_main, col_hist = st.columns([2, 1])
 
