@@ -137,6 +137,33 @@ def monthly_trend(df: pd.DataFrame) -> pd.DataFrame:
     return trend
 
 
+# ---- 担当者別 タグ付き率（拡張機能使用率） -------------------------
+
+def staff_tag_rate(df: pd.DataFrame) -> pd.DataFrame:
+    """担当者別 タグ付き率（全件ベース）"""
+    s_col = staff_column(df)
+    if s_col is None or df.empty:
+        return pd.DataFrame()
+
+    total = df.groupby(s_col).size().reset_index(name="総件数")
+    if "has_tag" in df.columns:
+        tagged_counts = (
+            df[df["has_tag"] == True]
+            .groupby(s_col)
+            .size()
+            .reset_index(name="タグ付き件数")
+        )
+    else:
+        tagged_counts = pd.DataFrame(columns=[s_col, "タグ付き件数"])
+
+    result = total.merge(tagged_counts, on=s_col, how="left")
+    result["タグ付き件数"] = result["タグ付き件数"].fillna(0).astype(int)
+    result["タグなし件数"] = result["総件数"] - result["タグ付き件数"]
+    result["タグ付き率(%)"] = (result["タグ付き件数"] / result["総件数"] * 100).round(1)
+    result = result.rename(columns={s_col: "担当者"})
+    return result.sort_values("タグ付き率(%)", ascending=True)
+
+
 # ---- 全件ベース集計（タグ不要） ------------------------------------
 
 def staff_activity_summary(df: pd.DataFrame) -> pd.DataFrame:
@@ -228,6 +255,13 @@ def build_summary_text(df: pd.DataFrame) -> str:
             lines.append(f"\n【日報テキストサンプル（{len(sample)}件抜粋）】")
             for text in sample:
                 lines.append(f"- {str(text)[:150]}")
+
+    # --- タグ付き率（拡張機能使用率） ---
+    tr = staff_tag_rate(df)
+    if not tr.empty:
+        overall_rate = round(tr["タグ付き件数"].sum() / tr["総件数"].sum() * 100, 1)
+        lines.append(f"\n【拡張機能使用率（タグ付き率）】全体: {overall_rate}%")
+        lines.append(tr.to_string(index=False))
 
     # --- タグ付き詳細分析（あれば） ---
     t = _tagged(df)

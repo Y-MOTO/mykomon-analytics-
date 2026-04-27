@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -20,7 +21,9 @@ import analyzer
 import ai_report
 from parser import load_csvs
 
-MANUAL_PATH = Path(__file__).parent / "使用マニュアル.md"
+MANUAL_PATH = Path(__file__).parent / "manual.md"
+INSTRUCTION_PATH = Path(__file__).parent / "instruction_director.md"
+GAP_PATH = Path(__file__).parent / "latest_gap.json"
 
 
 @st.dialog("📖 使用マニュアル", width="large")
@@ -30,7 +33,15 @@ def show_manual():
     else:
         st.warning("マニュアルファイルが見つかりません。")
 
-EXPORT_SCRIPT = Path(__file__).parent.parent / "csv-export" / "mykomon_export_http.py"
+
+@st.dialog("📋 所長向けインストラクション", width="large")
+def show_instruction():
+    if INSTRUCTION_PATH.exists():
+        st.markdown(INSTRUCTION_PATH.read_text(encoding="utf-8"))
+    else:
+        st.warning("インストラクションファイルが見つかりません。")
+
+EXPORT_SCRIPT = Path(__file__).parent.parent / "csv_export" / "mykomon_export_http.py"
 
 
 def get_months_in_range(sy, sm, ey, em):
@@ -64,8 +75,15 @@ def load_config() -> dict:
 
 
 # ── サイドバー ──────────────────────────────────────────────────────────────
+st.markdown("""<style>
+section[data-testid="stSidebar"] .stButton button {
+    font-size: 12px !important;
+    padding: 4px 6px !important;
+}
+</style>""", unsafe_allow_html=True)
+
 with st.sidebar:
-    st.title("⚙️ 設定")
+    st.markdown("**⚙️ 設定**")
     cfg = load_config()
 
     _c1, _c2 = st.columns(2)
@@ -73,13 +91,90 @@ with st.sidebar:
         if st.button("📖 マニュアル", use_container_width=True):
             show_manual()
     with _c2:
-        if st.button("🖨️ 印刷", use_container_width=True):
-            components.html("<script>window.parent.print();</script>", height=0)
+        if st.button("📋 運用説明", use_container_width=True):
+            show_instruction()
+
+    # 印刷ボタン：HTMLボタンとして直接レンダリング（ポップアップブロック回避）
+    _print_style = (
+        "flex:1; padding:6px 4px; font-size:13px; cursor:pointer;"
+        "background:#ff4b4b; color:white; border:none; border-radius:6px;"
+        "font-family:sans-serif;"
+    )
+    _doc_style = (
+        "font-family:'Yu Gothic','Meiryo',sans-serif; max-width:800px;"
+        "margin:2em auto; line-height:1.8; font-size:11pt; color:#222;"
+    )
+    _common_css = """
+      h1,h2,h3{border-bottom:1px solid #ccc;padding-bottom:.3em;margin-top:1.5em}
+      table{border-collapse:collapse;width:100%;margin:1em 0}
+      th,td{border:1px solid #ccc;padding:8px;text-align:left}
+      th{background:#f5f5f5}
+      pre{background:#f8f8f8;padding:1em;border-radius:4px;overflow-x:auto}
+      blockquote{border-left:4px solid #ccc;margin:0;padding-left:1em;color:#555}
+      @media print{@page{margin:2cm}body{margin:0}}
+    """
+    _manual_body = md_lib.markdown(
+        MANUAL_PATH.read_text(encoding="utf-8"), extensions=["tables", "nl2br"]
+    ) if MANUAL_PATH.exists() else "<p>ファイルが見つかりません</p>"
+    _inst_body = md_lib.markdown(
+        INSTRUCTION_PATH.read_text(encoding="utf-8"), extensions=["tables", "nl2br"]
+    ) if INSTRUCTION_PATH.exists() else "<p>ファイルが見つかりません</p>"
+
+    _manual_print_html = (
+        f'<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">'
+        f'<title>使用マニュアル</title>'
+        f'<style>body{{{_doc_style}}}{_common_css}</style></head>'
+        f'<body>{_manual_body}</body></html>'
+    )
+    _inst_print_html = (
+        f'<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">'
+        f'<title>所長向けインストラクション</title>'
+        f'<style>body{{{_doc_style}}}{_common_css}</style></head>'
+        f'<body>{_inst_body}</body></html>'
+    )
+    _manual_json = json.dumps(_manual_print_html, ensure_ascii=False)
+    _inst_json   = json.dumps(_inst_print_html,   ensure_ascii=False)
+    components.html(
+        f"""<html><head><style>
+        body{{margin:0;padding:2px 0;font-family:sans-serif;}}
+        .row{{display:flex;gap:4px;}}
+        button{{flex:1;padding:6px 0;font-size:11px;cursor:pointer;
+                background:#ff4b4b;color:white;border:none;border-radius:6px;
+                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}}
+        </style></head><body>
+        <div class="row">
+          <button onclick="doPrintManual()">🖨️ マニュアル印刷</button>
+          <button onclick="doPrintInst()">🖨️ 運用説明印刷</button>
+        </div>
+        <script>
+        function doPrintManual() {{
+            var w = window.open('', '_blank');
+            w.document.write({_manual_json});
+            w.document.close(); w.focus(); w.print();
+        }}
+        function doPrintInst() {{
+            var w = window.open('', '_blank');
+            w.document.write({_inst_json});
+            w.document.close(); w.focus(); w.print();
+        }}
+        </script>
+        </body></html>""",
+        height=46,
+    )
 
     st.divider()
 
     # --- データ取得セクション ---
-    st.markdown("### 📥 データ取得")
+    st.markdown("**🔐 MyKomon認証**")
+    _cfg_user = cfg.get("username", "")
+    _cfg_pass = cfg.get("password", "")
+    mykomon_user = st.text_input("MyKomon ID", value=_cfg_user, key="mk_user",
+                                  label_visibility="collapsed", placeholder="MyKomon ID")
+    mykomon_pass = st.text_input("パスワード", type="password",
+                                  value=_cfg_pass, key="mk_pass",
+                                  label_visibility="collapsed", placeholder="MyKomon パスワード")
+
+    st.markdown("**📥 データ取得**")
     now = datetime.now()
     years = list(range(now.year - 3, now.year + 1))
 
@@ -98,20 +193,25 @@ with st.sidebar:
     export_btn = st.button("📥 CSVをエクスポート実行", use_container_width=True,
                            type="primary")
 
-    st.divider()
-
-    # --- 分析設定 ---
-    st.markdown("### 📂 分析対象")
-    default_dir = cfg.get("save_dir", "")
-    save_dir = st.text_input("CSVフォルダ", value=default_dir,
-                              help="csv-export の config.json と同じパス")
     if not os.environ.get("ANTHROPIC_API_KEY"):
         api_key = st.text_input("Anthropic API キー", type="password",
                                  help="未設定の場合のみ入力してください")
         if api_key:
             os.environ["ANTHROPIC_API_KEY"] = api_key
 
-    load_btn = st.button("🔄 既存CSVを再読み込み", use_container_width=True)
+    # ローカル版のみ表示（config.jsonが存在する環境）
+    if CONFIG_PATH.exists():
+        st.divider()
+        st.markdown("**📂 分析対象**")
+        default_dir = cfg.get("save_dir", "")
+        save_dir = st.text_input("CSVフォルダ", value=default_dir,
+                                  label_visibility="collapsed",
+                                  placeholder="CSVフォルダパス",
+                                  help="csv-export の config.json と同じパス")
+        load_btn = st.button("🔄 既存CSVを再読み込み", use_container_width=True)
+    else:
+        save_dir = ""
+        load_btn = False
 
 # ── CSVエクスポート実行 ─────────────────────────────────────────────────────
 if export_btn:
@@ -126,12 +226,20 @@ if export_btn:
         status   = st.empty()
         errors   = []
 
+        # クラウド環境ではtempディレクトリを使用
+        effective_save_dir = save_dir if save_dir else tempfile.gettempdir()
+
         for i, (yr, mo) in enumerate(months):
             status.text(f"取得中: {yr}年{mo}月　({i+1} / {len(months)})")
+            cmd = [sys.executable, str(EXPORT_SCRIPT),
+                   "--year", str(yr), "--month", str(mo),
+                   "--save-dir", effective_save_dir]
+            if mykomon_user:
+                cmd += ["--username", mykomon_user]
+            if mykomon_pass:
+                cmd += ["--password", mykomon_pass]
             result = subprocess.run(
-                [sys.executable, str(EXPORT_SCRIPT),
-                 "--year", str(yr), "--month", str(mo)],
-                capture_output=True, text=True, encoding="utf-8", errors="replace"
+                cmd, capture_output=True, text=True, encoding="utf-8", errors="replace"
             )
             if result.returncode != 0:
                 errors.append(f"{yr}年{mo}月: {result.stderr[-200:]}")
@@ -139,17 +247,18 @@ if export_btn:
 
         status.empty()
         if errors:
-            st.error("一部エラーが発生しました:\n" + "\n".join(errors))
+            st.error("エクスポートに失敗しました:\n" + "\n".join(errors))
         else:
             st.success(f"{len(months)} ヶ月分のエクスポートが完了しました。データを読み込みます…")
-
-        # エクスポート後に自動でデータを再読み込み
-        if save_dir:
-            df_new = load_data(save_dir)
-            st.session_state.df = df_new
-            st.session_state.summary_text = analyzer.build_summary_text(df_new)
-            st.session_state.conversation = []
-            st.rerun()
+            # 成功時のみ自動再読み込み
+            reload_dir = save_dir if save_dir else effective_save_dir
+            if reload_dir:
+                df_new = load_data(reload_dir)
+                st.session_state.df = df_new
+                save_dir = reload_dir
+                st.session_state.summary_text = analyzer.build_summary_text(df_new)
+                st.session_state.conversation = []
+                st.rerun()
 
 # ── データ読み込み ──────────────────────────────────────────────────────────
 if "df" not in st.session_state:
@@ -183,7 +292,8 @@ if d_col:
         min_d = dates.min().strftime("%Y年%#m月")
         max_d = dates.max().strftime("%Y年%#m月")
         period_str = min_d if min_d == max_d else f"{min_d} 〜 {max_d}"
-        st.info(f"📅 読み込み期間：**{period_str}**　｜　全 {len(df):,} 件　｜　タグ付き {len(tagged):,} 件")
+        tag_rate_pct = round(len(tagged) / len(df) * 100, 1) if len(df) > 0 else 0.0
+        st.info(f"📅 読み込み期間：**{period_str}**　｜　全 {len(df):,} 件　｜　タグ付き {len(tagged):,} 件（{tag_rate_pct}%）")
 
 if tagged.empty:
     st.caption("タグ付き日報はまだありません。全件ベースの活動量分析を表示しています。")
@@ -216,6 +326,28 @@ with tab1:
             st.plotly_chart(fig, use_container_width=True)
         with col_b:
             st.dataframe(sa, use_container_width=True, hide_index=True)
+
+    st.divider()
+    st.subheader("担当者別 拡張機能使用率（タグ付き率）")
+    tr = analyzer.staff_tag_rate(df)
+    if tr.empty:
+        st.info("担当者列が見つかりません")
+    else:
+        col_a, col_b = st.columns([3, 2])
+        with col_a:
+            fig = px.bar(
+                tr,
+                x="担当者", y="タグ付き率(%)",
+                color="タグ付き率(%)",
+                color_continuous_scale=["#e05252", "#f5c518", "#27ae60"],
+                range_color=[0, 100],
+                title="担当者別 タグ付き率（%）　←低いほど未使用",
+            )
+            fig.update_xaxes(tickangle=45)
+            fig.update_yaxes(range=[0, 100])
+            st.plotly_chart(fig, use_container_width=True)
+        with col_b:
+            st.dataframe(tr, use_container_width=True, hide_index=True)
 
     if not tagged.empty:
         st.divider()
@@ -424,6 +556,61 @@ with tab5:
             """,
             height=60,
         )
+
+        # ── 人事経営相談に送る ─────────────────────────────────────────
+        st.divider()
+        st.markdown("#### 📨 人事経営相談アプリに送る")
+        st.caption("集計数値（生データ）を人事経営相談アプリの「ズレ」として活用できます")
+        if st.button("📨 人事経営相談に送る", use_container_width=True, key="send_to_consult"):
+            _gap: dict = {"generated_at": datetime.now().strftime("%Y-%m-%d %H:%M")}
+            try:
+                _gap["period"] = period_str
+                _gap["tag_rate_pct"] = float(tag_rate_pct)
+            except NameError:
+                _gap["period"] = "不明"
+                _gap["tag_rate_pct"] = round(len(tagged) / len(df) * 100, 1) if len(df) > 0 else 0.0
+            _gap["total_records"] = int(len(df))
+            _gap["tagged_records"] = int(len(tagged))
+
+            _sb = analyzer.staff_blocking_summary(df)
+            _gap["stuck_count"] = int(_sb["詰まり件数"].sum()) if not _sb.empty else 0
+
+            _rb = analyzer.staff_blocking_reasons(df)
+            if not _rb.empty:
+                _top = _rb.groupby("阻害要因")["件数"].sum().sort_values(ascending=False).head(5)
+                _gap["top_blockers"] = [[k, int(v)] for k, v in _top.items()]
+            else:
+                _gap["top_blockers"] = []
+
+            _tr = analyzer.staff_tag_rate(df)
+            if not _tr.empty:
+                _low = _tr.nsmallest(5, "タグ付き率(%)")
+                _gap["low_tag_rate_staff"] = [
+                    [row["担当者"], float(row["タグ付き率(%)"])]
+                    for _, row in _low.iterrows()
+                ]
+            else:
+                _gap["low_tag_rate_staff"] = []
+
+            _cb = analyzer.client_blocking_summary(df)
+            if not _cb.empty and "Red件数" in _cb.columns:
+                _gap["red_clients"] = _cb[_cb["Red件数"] > 0].head(5)["顧問先"].tolist()
+            else:
+                _gap["red_clients"] = []
+
+            _mt = analyzer.monthly_trend(df)
+            if not _mt.empty and "詰まり率" in _mt.columns:
+                _gap["monthly_stuck_rates"] = {
+                    str(r["月"]): float(r["詰まり率"])
+                    for _, r in _mt.tail(6).iterrows()
+                }
+            else:
+                _gap["monthly_stuck_rates"] = {}
+
+            GAP_PATH.write_text(
+                json.dumps(_gap, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            st.success("✅ 人事経営相談アプリにデータを送りました。人事経営相談アプリのサイドバーから読み込んでください。")
 
         st.divider()
         st.markdown("### フォローアップ質問")
