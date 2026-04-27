@@ -213,3 +213,224 @@ AIによる以下の分析が可能になる。
 4. **拡張機能の配布方法**
    - Microsoft Edge アドオンストア経由、またはグループポリシーによる社内配布
    - 職員が個別にインストール・アンインストールできないよう管理者が制御することを推奨
+
+---
+
+## app.py の既知の問題点（2026-04-27 記録）
+
+Streamlit アプリ（日報分析アプリ）の開発中に発覚したバグと対処法。将来の修正作業で同じ過ちを繰り返さないために記録する。
+
+---
+
+### 問題1：Streamlit Cloud のエントリポイントはルートの `app.py`
+
+**症状**：`日報分析アプリ/app.py` を何時間編集しても Streamlit Cloud に反映されない。  
+**原因**：Streamlit Cloud のログに `main module: 'app.py'` と表示されており、ルート直下の `app.py` が entry point。`日報分析アプリ/app.py` はローカル版専用。  
+**対処**：クラウド版を修正するときは**必ずルートの `app.py` を直接編集する**。
+
+**ファイルの使い分け**：
+| ファイル | 用途 |
+|---|---|
+| `app.py`（ルート） | Streamlit Cloud（クラウド版）のエントリポイント |
+| `日報分析アプリ/app.py` | ローカル版（.bat ファイルから起動）のエントリポイント |
+| `配布用/所長配布用/日報分析アプリ/app.py` | ローカル版のコピー（所長配布フォルダ）。更新時は手動で同期が必要 |
+
+---
+
+### 問題2：`%#m` は Windows 専用 — Linux（Streamlit Cloud）でクラッシュする
+
+**症状**：データ読み込み後に Streamlit Cloud でエラーが発生し、グラフが表示されない。  
+**原因**：`strftime("%Y年%#m月")` の `%#m`（ゼロ埋めなし月）は Windows 専用書式。Linux では `%-m` を使う。  
+**対処**：
+
+```python
+# 誤（Windows専用）
+label = dates.min().strftime("%Y年%#m月")
+
+# 正（OS判定で分岐）
+_fmt = "%Y年%-m月" if os.name != "nt" else "%Y年%#m月"
+label = dates.min().strftime(_fmt)
+```
+
+---
+
+### 問題3：`st.stop()` をタブ生成前に呼ぶと全タブがブロックされる
+
+**症状**：Tab6「人事経営相談」がデータ未読み込み時に表示されない（相談はデータ不要なのに使えない）。  
+**原因**：`if df.empty: st.info(...); st.stop()` をタブ生成コードより前に書くと、`st.tabs([...])` 自体が実行されず全タブが消える。  
+**対処**：`st.stop()` はタブ生成前に書かない。各タブ内部に `if df.empty: st.info(_NO_DATA)` を入れてガードする。
+
+```python
+# 誤
+if df.empty:
+    st.info("データがありません")
+    st.stop()  # ここで止まると以降のタブが全部消える
+
+tab1, tab2, tab3, ... = st.tabs([...])
+
+# 正
+tab1, tab2, tab3, ... = st.tabs([...])
+
+with tab1:
+    if df.empty:
+        st.info(_NO_DATA)
+    else:
+        # グラフ描画
+```
+
+---
+
+### 問題4：変数の初期化漏れによる `NameError`
+
+**症状**：Tab5 の AI レポート生成ボタン描画時に `NameError: name 'summary_text' is not defined`。  
+**原因**：`summary_text` を `if not df.empty:` ブロック内でのみ代入し、`df.empty` のときに未定義のまま後続コードが参照した。  
+**対処**：条件分岐の前に必ず初期値を設定する。
+
+```python
+# 誤
+if not df.empty:
+    summary_text = generate_report(...)
+# df.empty のとき summary_text は未定義
+
+st.button("送る", disabled=not summary_text)  # NameError
+
+# 正
+summary_text = ""  # 先に初期化
+if not df.empty and get_api_key():
+    summary_text = generate_report(...)
+
+st.button("送る", disabled=not summary_text)
+```
+
+---
+
+### 問題5：`st.text_area` の `value=` は既存の session_state を上書きしない
+
+**症状**：「この結果を相談入力欄にセット」ボタンを押しても入力欄が変わらない。  
+**原因**：`st.text_area(key="k", value=x)` は `st.session_state["k"]` が既に存在すると `value=` を完全に無視する。  
+**対処**：プリフィルしたいテキストを直接 `st.session_state` のウィジェットキーに書き込んでから `st.rerun()` する。
+
+```python
+# 誤
+st.session_state["consult_prefill"] = text
+st.rerun()
+# ↓ text_area 側で value=prefill としても key が存在すると無視される
+
+# 正
+st.session_state["consult_question_input"] = text  # ウィジェットキーを直接書き換え
+st.rerun()
+```
+
+---
+
+### 配布用フォルダの手動同期が必要
+
+`日報分析アプリ/app.py` を更新したら、以下への手動コピーも忘れずに行う：
+
+```
+配布用/所長配布用/日報分析アプリ/app.py
+配布用/所長配布用/日報分析アプリ/analyzer.py
+配布用/所長配布用/日報分析アプリ/knowledge.py
+配布用/所長配布用/日報分析アプリ/使用マニュアル.md
+配布用/所長配布用/日報分析アプリ/instruction_director.md
+配布用/所長配布用/instruction_director.md
+```
+
+---
+
+## app.py の理想的なフォルダ構成（2026-04-27 設計レビュー）
+
+### 現状の問題：同じファイルが3箇所に存在し手動同期が必要
+
+```
+現状（問題あり）
+/
+├── app.py                ← Streamlit Cloud 専用（クラウドのみ）
+├── analyzer.py           ← クラウド用
+├── knowledge.py          ← クラウド用
+├── manual.md             ← クラウド用
+├── 日報分析アプリ/
+│   ├── app.py            ← ローカル専用（内容はクラウド版と別管理）
+│   ├── analyzer.py       ← ローカル用（同じ内容の重複）
+│   ├── knowledge.py      ← ローカル用（同じ内容の重複）
+│   └── 使用マニュアル.md
+└── 配布用/所長配布用/日報分析アプリ/
+    ├── app.py            ← 手動コピー（更新漏れが起きやすい）
+    ├── analyzer.py       ← 手動コピー
+    ├── knowledge.py      ← 手動コピー
+    └── 使用マニュアル.md ← 手動コピー
+```
+
+`app.py` の実体が**クラウド版・ローカル版・配布用**の3か所に分散しており、
+更新するたびに3か所を手動で同期しなければならない。同期漏れがバグの温床になる。
+
+---
+
+### 理想構成A：Streamlit Cloud の entry point を `日報分析アプリ/app.py` に変更する
+
+最小変更で二重管理を解消できる案。Streamlit Cloud の設定画面で **Main file path** を
+`日報分析アプリ/app.py` に変更するだけでよい（コード変更は不要）。
+
+```
+理想構成A（推奨）
+/
+├── 日報分析アプリ/           ← ここだけメンテすれば Cloud もローカルも動く
+│   ├── app.py                ← Cloud + ローカル共通 entry point
+│   ├── analyzer.py
+│   ├── knowledge.py
+│   ├── 使用マニュアル.md
+│   └── instruction_director.md
+├── 配布用/所長配布用/
+│   ├── instruction_director.md   ← 手動コピー（引き続き必要）
+│   └── 日報分析アプリ/           ← 手動コピー（引き続き必要）
+└── edge-extension/
+    └── ...
+```
+
+**メリット**：ルートの `app.py` / `analyzer.py` / `knowledge.py` が不要になり、
+「クラウド用」と「ローカル用」の二重管理が消える。  
+**デメリット**：Streamlit Cloud の設定変更が必要（一度だけの作業）。
+
+**変更手順**：
+1. Streamlit Cloud のダッシュボードでアプリの Settings を開く
+2. **Main file path** を `app.py` → `日報分析アプリ/app.py` に変更して Save
+3. ルートの `app.py` / `analyzer.py` / `knowledge.py` / `manual.md` を削除
+
+---
+
+### 理想構成B：全ファイルをルートに統合する
+
+ローカル版の `.bat` ファイルもルートの `app.py` を指すように変更し、
+`日報分析アプリ/` フォルダ自体をなくす案。
+
+```
+理想構成B（シンプル）
+/
+├── app.py                ← Cloud + ローカル共通（.bat もここを指す）
+├── analyzer.py
+├── knowledge.py
+├── manual.md
+├── instruction_director.md
+├── 配布用/所長配布用/
+│   └── （バッチと起動ショートカットのみ。py ファイルは共有）
+└── edge-extension/
+    └── ...
+```
+
+**メリット**：`.py` ファイルの重複が完全になくなる。ローカルもクラウドも1つのファイルを参照。  
+**デメリット**：ローカル版の `.bat` ファイルのパス修正が必要。`配布用/` の py ファイルを
+削除してルートへのパス参照に切り替える作業が発生する。
+
+---
+
+### 現状のまま運用する場合の最低限のルール
+
+構成変更をしない場合は、以下を開発ルールとして徹底する：
+
+| ルール | 理由 |
+|---|---|
+| クラウド版修正 → ルートの `app.py` を編集 | `日報分析アプリ/app.py` はクラウドに反映されない |
+| ローカル版修正 → `日報分析アプリ/app.py` を編集 | ルート `app.py` はローカル版の `.bat` から参照されない |
+| 両方に同じ修正が必要なら両方に適用 | 内容が乖離すると動作の差異が生じる |
+| `analyzer.py` / `knowledge.py` を修正したら両方のフォルダに適用 | 共有ロジックが分岐するとデバッグ困難になる |
+| 配布用への同期は修正のたびに実施 | 所長のローカル版が古いまま動作し続けるリスクを防ぐ |
