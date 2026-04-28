@@ -25,6 +25,7 @@ from parser import load_csvs
 
 MANUAL_PATH = Path(__file__).parent / "manual.md"
 INSTRUCTION_PATH = Path(__file__).parent / "instruction_director.md"
+DEV_RECORD_PATH = Path(__file__).parent / "開発記録.md"
 
 
 @st.dialog("📖 使用マニュアル", width="large")
@@ -41,6 +42,14 @@ def show_instruction():
         st.markdown(INSTRUCTION_PATH.read_text(encoding="utf-8"))
     else:
         st.warning("インストラクションファイルが見つかりません。")
+
+
+@st.dialog("🛠️ 開発記録", width="large")
+def show_dev_record():
+    if DEV_RECORD_PATH.exists():
+        st.markdown(DEV_RECORD_PATH.read_text(encoding="utf-8"))
+    else:
+        st.warning("開発記録ファイルが見つかりません。")
 
 EXPORT_SCRIPT = Path(__file__).parent / "csv_export" / "mykomon_export_http.py"
 
@@ -149,13 +158,16 @@ with st.sidebar:
     st.markdown("**⚙️ 設定**")
     cfg = load_config()
 
-    _c1, _c2 = st.columns(2)
+    _c1, _c2, _c3 = st.columns(3)
     with _c1:
         if st.button("📖 マニュアル", use_container_width=True):
             show_manual()
     with _c2:
         if st.button("📋 運用説明", use_container_width=True):
             show_instruction()
+    with _c3:
+        if st.button("🛠️ 開発記録", use_container_width=True):
+            show_dev_record()
 
     # 印刷ボタン：HTMLボタンとして直接レンダリング（ポップアップブロック回避）
     _print_style = (
@@ -182,6 +194,9 @@ with st.sidebar:
     _inst_body = md_lib.markdown(
         INSTRUCTION_PATH.read_text(encoding="utf-8"), extensions=["tables", "nl2br"]
     ) if INSTRUCTION_PATH.exists() else "<p>ファイルが見つかりません</p>"
+    _dev_body = md_lib.markdown(
+        DEV_RECORD_PATH.read_text(encoding="utf-8"), extensions=["tables", "nl2br"]
+    ) if DEV_RECORD_PATH.exists() else "<p>ファイルが見つかりません</p>"
 
     _manual_print_html = (
         f'<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">'
@@ -195,8 +210,15 @@ with st.sidebar:
         f'<style>body{{{_doc_style}}}{_common_css}</style></head>'
         f'<body>{_inst_body}</body></html>'
     )
+    _dev_print_html = (
+        f'<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">'
+        f'<title>開発記録</title>'
+        f'<style>body{{{_doc_style}}}{_common_css}</style></head>'
+        f'<body>{_dev_body}</body></html>'
+    )
     _manual_json = json.dumps(_manual_print_html, ensure_ascii=False)
     _inst_json   = json.dumps(_inst_print_html,   ensure_ascii=False)
+    _dev_json    = json.dumps(_dev_print_html,    ensure_ascii=False)
     components.html(
         f"""<html><head><style>
         body{{margin:0;padding:2px 0;font-family:sans-serif;}}
@@ -208,6 +230,7 @@ with st.sidebar:
         <div class="row">
           <button onclick="doPrintManual()">🖨️ マニュアル印刷</button>
           <button onclick="doPrintInst()">🖨️ 運用説明印刷</button>
+          <button onclick="doPrintDev()">🖨️ 開発記録印刷</button>
         </div>
         <script>
         function doPrintManual() {{
@@ -218,6 +241,11 @@ with st.sidebar:
         function doPrintInst() {{
             var w = window.open('', '_blank');
             w.document.write({_inst_json});
+            w.document.close(); w.focus(); w.print();
+        }}
+        function doPrintDev() {{
+            var w = window.open('', '_blank');
+            w.document.write({_dev_json});
             w.document.close(); w.focus(); w.print();
         }}
         </script>
